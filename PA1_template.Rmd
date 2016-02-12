@@ -5,21 +5,113 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
+```{r}
+#Data analysis and plotting script for Reproducible Research Course Project #1
+
+#Load data
+act <- read.csv('activity.csv')
+
+#Load required libraries
+library(dplyr)
+library(ggplot2)
+
+#Group the data by day and sum the steps per day and add a weekday column
+b <- act %>% group_by(date) %>% summarise(SPD = sum(steps))
+b <- b %>% mutate(WkDay = weekdays(as.Date(date), TRUE))
+
+#Group the data by 5-min interval and average the steps for each interval
+c <- act %>% group_by(interval) %>% summarise(avgSPI = mean(steps, na.rm=TRUE))
+```
+
+```{r, echo=TRUE}
+#Which 5-min interval had the greatest average number of steps?
+c$interval[match(max(c$avgSPI), c$avgSPI)] #Interval 835
 
 
+#Determine the number of NA values in each column of the original data (act)
+naSteps <- sum(is.na(act$steps))
+naDates <- sum(is.na(act$date))
+naInts <- sum(is.na(act$interval))
+naTotal <- sum(naSteps, naDates, naInts) #2304 na values total
+
+naSteps
+naDates
+naInts
+naTotal
+
+#Impute the missing values; replace missing values with the mean steps per day or per interval
+imputedData <- act
+imputedData$steps <- ifelse(is.na(imputedData$steps), c$avgSPI, imputedData$steps)
+
+#Group the data by day and sum the steps per day and add a weekday column
+d <- imputedData %>% group_by(date) %>% summarise(SPD = sum(steps))
+d <- d %>% mutate(WkDay = weekdays(as.Date(date), TRUE))
+
+#Create vectors of weekdays and weekend days so that we can group the data accordingly
+weekdays <- c('Mon','Tue','Wed','Thu','Fri')
+weekends <- c('Sat', 'Sun')
+
+#Create a new column indicating whether the date is a weekend or weekday
+d <- mutate(d, DayType = WkDay) %>%
+     mutate(DayType=replace(DayType, is.element(WkDay, weekdays), 'Weekday')) %>%
+     mutate(DayType=replace(DayType, is.element(WkDay, weekends), 'Weekend'))
+
+#Add weekend or weekday markers for the average steps per interval dataset
+e <- imputedData %>% mutate(WkDay = weekdays(as.Date(date), TRUE))
+
+e <- mutate(e, DayType = WkDay) %>%
+     mutate(DayType=replace(DayType, is.element(WkDay, weekdays), 'Weekday')) %>%
+     mutate(DayType=replace(DayType, is.element(WkDay, weekends), 'Weekend'))
+
+f <- e %>% group_by(DayType, interval) %>% summarise(SPI = mean(steps))
+```
+
+```{r, echo=TRUE}
+#Calculate the mean and median steps per day
+meanSPDimputed <- mean(d$SPD, na.rm=TRUE)
+medianSPDimputed <- median(d$SPD, na.rm=TRUE)
+print(meanSPDimputed)
+print(medianSPDimputed)
+```
 
 ## What is mean total number of steps taken per day?
-
-
+```{r, echo=TRUE}
+meanSPDimputed <- mean(d$SPD, na.rm=TRUE)
+medianSPDimputed <- median(d$SPD, na.rm=TRUE)
+print(meanSPDimputed)
+print(medianSPDimputed)
+```
 
 ## What is the average daily activity pattern?
+```{r, echo=FALSE}
+#Create a time series plot showing the avg steps taken during each 5-min interval
+ggplot(data=c, aes(x=c$interval, y=c$avgSPI)) + 
+    geom_line(col='blue') +
+    labs(title='Average number of steps in a given five minute interval across all days') +
+    labs(x='Five minute interval of interest', y='Average number of steps taken') +
+    theme_bw()
+```
 
 
 
 ## Imputing missing values
-
-
+```{r, echo=FALSE}
+#Impute the missing values; replace missing values with the mean steps per day or per interval
+imputedData <- act
+imputedData$steps <- ifelse(is.na(imputedData$steps), c$avgSPI, imputedData$steps)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+There are some differences in activity between weekends and weekdays.
+```{r, echo=FALSE}
+qplot(interval, SPI, data=f, col=DayType,
+      xlab='Interval', ylab='Average steps', 
+      main='Average steps per five-minute interval: weekday vs weekend') +
+      geom_path() +
+      facet_wrap(~ DayType, ncol=1, scales='free') +
+      theme(legend.position='none')
+```
+
+
+
